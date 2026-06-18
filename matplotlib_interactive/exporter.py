@@ -14,8 +14,24 @@ from .theme import Theme
 
 PathLike = Union[str, Path]
 
-_DEFAULT_HOTSPOT_RADIUS_PX = 10
+_DEFAULT_HOTSPOT_RADIUS_PX = 5
 _DEFAULT_PREVIEW_MARGIN = "16px"
+_DEFAULT_TARGET_MAX_DIM_PX = 1600
+_DEFAULT_MIN_DPI = 120
+_DEFAULT_MAX_DPI = 300
+
+
+def _auto_dpi_from_figsize(fig: Figure) -> int:
+    """Choose a reasonable PNG DPI for on-screen HTML viewing.
+
+    Goal: keep the largest dimension around ~1600 px for typical screens.
+    Clamped to a conservative range to avoid huge files.
+    """
+    w_in, h_in = fig.get_size_inches()
+    max_in = max(float(w_in), float(h_in), 1e-6)
+    dpi = int(round(_DEFAULT_TARGET_MAX_DIM_PX / max_in))
+    dpi = max(_DEFAULT_MIN_DPI, min(_DEFAULT_MAX_DPI, dpi))
+    return dpi
 
 
 @dataclass
@@ -120,9 +136,13 @@ def make_plot_interactive(
     output_html_path = Path(output_html_path)
     output_html_path.parent.mkdir(parents=True, exist_ok=True)
 
-    dpi = image_dpi if image_dpi is not None else fig.dpi
+    dpi = image_dpi if image_dpi is not None else _auto_dpi_from_figsize(fig)
 
     fig.canvas.draw()
+
+    # Matplotlib's transforms are based on the figure's current DPI (fig.dpi).
+    # If we save at a different DPI, scale the hotspot coordinates accordingly.
+    scale_factor = float(dpi) / float(fig.dpi)
 
     fig_width_px, fig_height_px = fig.get_size_inches() * dpi
     fig_width_px = round(fig_width_px)
@@ -135,6 +155,7 @@ def make_plot_interactive(
         fig_height_px=fig_height_px,
         hotspot_radius_px=hotspot_radius_px,
         iframe_preview=iframe_preview is not None,
+        scale_factor=scale_factor,
     )
 
     image_path = output_html_path.with_suffix(".png")

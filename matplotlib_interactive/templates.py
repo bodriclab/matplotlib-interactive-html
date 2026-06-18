@@ -65,6 +65,7 @@ def build_hotspot_areas(
     hotspot_radius_px: int,
     *,
     iframe_preview: bool,
+    scale_factor: float = 1.0,
 ) -> tuple[str, list[dict]]:
     """Build HTML area elements and hotspot metadata for SVG overlay."""
     zones: list[str] = []
@@ -72,8 +73,11 @@ def build_hotspot_areas(
 
     for index, (x_value, y_value, label) in enumerate(zip(x_data, y_data, labels)):
         px, py = ax.transData.transform((x_value, y_value))
-        py_html = fig_height_px - py
-        coords = f"{round(px)},{round(py_html)},{hotspot_radius_px}"
+        px_scaled = px * scale_factor
+        py_scaled = py * scale_factor
+        py_html = fig_height_px - py_scaled
+        radius_scaled = max(1, round(hotspot_radius_px * scale_factor))
+        coords = f"{round(px_scaled)},{round(py_html)},{radius_scaled}"
         safe_label = html.escape(str(label), quote=True)
         media_type = detect_media_type(label)
 

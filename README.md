@@ -178,7 +178,7 @@ make_plot_interactive(
     labels,
     output_html_path,
     *,
-    hotspot_radius_px=10,
+    hotspot_radius_px=5,
     image_dpi=None,
     iframe_preview=None,
     theme=Theme(mode="auto"),

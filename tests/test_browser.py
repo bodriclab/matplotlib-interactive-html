@@ -28,7 +28,10 @@ def _click_hotspot(page, src: str) -> None:
 @pytest.fixture(scope="module")
 def browser_context():
     with sync_playwright() as playwright_instance:
-        browser = playwright_instance.chromium.launch(headless=True)
+        try:
+            browser = playwright_instance.chromium.launch(headless=True)
+        except Exception as exc:  # pragma: no cover
+            pytest.skip(f"Playwright browser not installed: {exc}")
         yield browser
         browser.close()
 
@@ -98,4 +101,16 @@ def test_splitter_visible_and_resizes_plot(browser_context, preview_html):
 
     width_after_drag = page.evaluate("() => document.getElementById('plot_image').clientWidth")
     assert width_after_drag < width_before_drag
+    page.close()
+
+
+def test_preview_high_dpi_hotspots_clickable(browser_context, preview_html_high_dpi):
+    page = browser_context.new_page(viewport={"width": 1400, "height": 900})
+    page.goto(preview_html_high_dpi.resolve().as_uri())
+    page.wait_for_function("() => document.getElementById('plot_image').clientWidth > 0")
+
+    _click_hotspot(page, "media/a.png")
+    page.wait_for_timeout(300)
+    assert page.locator("#preview_panel").is_visible()
+    assert page.evaluate("() => document.getElementById('preview_image').src").endswith("media/a.png")
     page.close()

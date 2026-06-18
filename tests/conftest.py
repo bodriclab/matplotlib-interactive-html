@@ -67,3 +67,21 @@ def preview_html(sample_plot, output_dir):
         theme=Theme(mode="auto"),
     )
     return path
+
+
+@pytest.fixture
+def preview_html_high_dpi(sample_plot, output_dir):
+    fig, ax, x, y = sample_plot
+    labels = ["media/a.png", "media/b.png", "media/clip.mp4"]
+    path = make_plot_interactive(
+        fig,
+        ax,
+        x,
+        y,
+        labels,
+        output_dir / "preview_high_dpi.html",
+        iframe_preview=IframePreview(),
+        theme=Theme(mode="auto"),
+        image_dpi=300,
+    )
+    return path
