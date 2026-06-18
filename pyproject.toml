@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "matplotlib-interactive-html"
+version = "0.2.2"
+description = "Generate responsive HTML image maps from Matplotlib figures"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "matplotlib-interactive-html contributors" },
+]
+keywords = ["matplotlib", "html", "image-map", "interactive", "visualization"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+    "matplotlib>=3.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "playwright>=1.40",
+    "pytest>=7.0",
+    "Pillow>=9.0",
+]
+
+[project.scripts]
+matplotlib-interactive = "matplotlib_interactive.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/YOUR_USERNAME/matplotlib-interactive-html"
+Repository = "https://github.com/YOUR_USERNAME/matplotlib-interactive-html"
+Documentation = "https://github.com/YOUR_USERNAME/matplotlib-interactive-html#readme"
+Issues = "https://github.com/YOUR_USERNAME/matplotlib-interactive-html/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["matplotlib_interactive"]
+
+[tool.pytest.ini_options]
+markers = [
+    "browser: browser integration tests using Playwright",
+]
