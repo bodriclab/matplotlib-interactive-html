@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
-    { name = "matplotlib-interactive-html contributors" },
+    { name = "bodriclab" },
 ]
 keywords = ["matplotlib", "html", "image-map", "interactive", "visualization"]
 classifiers = [
@@ -39,10 +39,10 @@ dev = [
 matplotlib-interactive = "matplotlib_interactive.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/YOUR_USERNAME/matplotlib-interactive-html"
-Repository = "https://github.com/YOUR_USERNAME/matplotlib-interactive-html"
-Documentation = "https://github.com/YOUR_USERNAME/matplotlib-interactive-html#readme"
-Issues = "https://github.com/YOUR_USERNAME/matplotlib-interactive-html/issues"
+Homepage = "https://github.com/bodriclab/matplotlib-interactive-html"
+Repository = "https://github.com/bodriclab/matplotlib-interactive-html"
+Documentation = "https://github.com/bodriclab/matplotlib-interactive-html#readme"
+Issues = "https://github.com/bodriclab/matplotlib-interactive-html/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["matplotlib_interactive"]

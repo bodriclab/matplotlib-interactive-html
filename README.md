@@ -2,6 +2,8 @@
 
 Generate responsive, self-contained HTML image maps from Matplotlib figures.
 
+Repository: [github.com/bodriclab/matplotlib-interactive-html](https://github.com/bodriclab/matplotlib-interactive-html)
+
 Each data point becomes a clickable hotspot that can open a linked file (image, video, HTML page, PDF, etc.) in a new browser tab or in an optional side preview panel.
 
 **Requirements:** Python 3.9+, Matplotlib 3.5+
