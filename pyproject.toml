@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "matplotlib-interactive-html"
-version = "0.2.4"
+version = "0.2.5"
 description = "Generate responsive HTML image maps from Matplotlib figures"
 readme = "README.md"
 requires-python = ">=3.9"

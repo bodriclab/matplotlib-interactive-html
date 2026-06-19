@@ -220,6 +220,8 @@ def _hotspot_css(show_hotspots: bool) -> str:
         }
         .plot-surface {
             position: relative;
+            overflow: hidden;
+            width: 100%;
         }
         .hotspot-overlay {
             position: absolute;
@@ -357,20 +359,17 @@ def build_auto_preview_css(iframe_preview: IframePreview) -> str:
             height: 100%;
             min-width: 0;
             min-height: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            overflow: hidden;
         }}
         body.iframe-preview-mode.preview-active .container {{
             width: auto;
             height: 100%;
         }}
         body.iframe-preview-mode #plot_image {{
-            width: 100%;
-            height: 100%;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
+            position: absolute;
+            max-width: none;
+            max-height: none;
+            object-fit: fill;
             display: block;
             border: none;
             border-radius: var(--radius);
@@ -420,11 +419,10 @@ def build_fixed_preview_css(iframe_preview: IframePreview, container_width: str)
             justify-content: center;
         }}
         body.iframe-preview-mode #plot_image {{
-            max-width: 100%;
-            max-height: 100%;
-            width: auto;
-            height: auto;
-            object-fit: contain;
+            position: absolute;
+            max-width: none;
+            max-height: none;
+            object-fit: fill;
             display: block;
             border: none;
             border-radius: var(--radius);
@@ -469,11 +467,11 @@ def build_resize_map_js(
             if (overlay) {{
                 overlay.style.left = `${{offsetX}}px`;
                 overlay.style.top = `${{offsetY}}px`;
-                overlay.style.width = `${{renderedWidth}}px`;
-                overlay.style.height = `${{renderedHeight}}px`;
-                overlay.setAttribute('viewBox', `0 0 ${{naturalWidth}} ${{naturalHeight}}`);
-                overlay.setAttribute('width', renderedWidth);
-                overlay.setAttribute('height', renderedHeight);
+                overlay.style.width = `${{effectiveWidth}}px`;
+                overlay.style.height = `${{effectiveHeight}}px`;
+                overlay.setAttribute('viewBox', `0 0 ${{NATURAL_WIDTH}} ${{NATURAL_HEIGHT}}`);
+                overlay.setAttribute('width', effectiveWidth);
+                overlay.setAttribute('height', effectiveHeight);
 
                 if (overlay.querySelectorAll('.hotspot-marker').length !== hotspotData.length) {{
                     overlay.querySelectorAll('.hotspot-marker').forEach((marker) => marker.remove());
@@ -514,44 +512,265 @@ def build_resize_map_js(
 
     return f"""
         const HOTSPOT_DATA = {hotspots_json};
+        const NATURAL_WIDTH = {fig_width_px};
+        const NATURAL_HEIGHT = {fig_height_px};
+        const plotZoom = {{ level: 1, panX: 0, panY: 0 }};
+        window.plotZoom = plotZoom;
+        const ZOOM_MIN = 1;
+        const ZOOM_MAX = 10;
+        const ZOOM_STEP = 1.1;
         let hotspotInteractionsReady = false;
+        let plotZoomInteractionsReady = false;
+        let panState = null;
 
-        function resizeMap() {{
-            const img = document.getElementById('plot_image');
-            if (!img || !img.clientWidth || !img.clientHeight) {{
+        function getPlotSurface() {{
+            return document.getElementById('main_plot_surface');
+        }}
+
+        function isEmbeddedPreview() {{
+            return window.self !== window.top;
+        }}
+
+        function computeBaseLayout(surface) {{
+            let containerWidth = surface.clientWidth;
+            let containerHeight = surface.clientHeight;
+            if (!containerWidth) {{
+                return null;
+            }}
+            if (!containerHeight) {{
+                containerHeight = Math.round(containerWidth * NATURAL_HEIGHT / NATURAL_WIDTH);
+            }}
+
+            const scale = Math.min(
+                containerWidth / NATURAL_WIDTH,
+                containerHeight / NATURAL_HEIGHT
+            );
+            const renderedWidth = NATURAL_WIDTH * scale;
+            const renderedHeight = NATURAL_HEIGHT * scale;
+            const offsetX = (containerWidth - renderedWidth) / 2;
+            const offsetY = (containerHeight - renderedHeight) / 2;
+            return {{
+                scale,
+                offsetX,
+                offsetY,
+                renderedWidth,
+                renderedHeight,
+                containerWidth,
+                containerHeight,
+            }};
+        }}
+
+        function computePlotLayout(surface) {{
+            const base = computeBaseLayout(surface);
+            if (!base) {{
+                return null;
+            }}
+
+            const effectiveScale = base.scale * plotZoom.level;
+            const effectiveWidth = NATURAL_WIDTH * effectiveScale;
+            const effectiveHeight = NATURAL_HEIGHT * effectiveScale;
+            const offsetX = base.offsetX + plotZoom.panX;
+            const offsetY = base.offsetY + plotZoom.panY;
+            return {{
+                ...base,
+                effectiveScale,
+                effectiveWidth,
+                effectiveHeight,
+                offsetX,
+                offsetY,
+            }};
+        }}
+
+        function clampPan(layout) {{
+            if (plotZoom.level <= ZOOM_MIN) {{
+                plotZoom.panX = 0;
+                plotZoom.panY = 0;
                 return;
             }}
 
+            const minLeft = layout.containerWidth - layout.effectiveWidth;
+            const maxLeft = 0;
+            const minTop = layout.containerHeight - layout.effectiveHeight;
+            const maxTop = 0;
+            const clampedLeft = Math.max(minLeft, Math.min(maxLeft, layout.offsetX));
+            const clampedTop = Math.max(minTop, Math.min(maxTop, layout.offsetY));
+            plotZoom.panX += clampedLeft - layout.offsetX;
+            plotZoom.panY += clampedTop - layout.offsetY;
+        }}
+
+        function applyPlotLayout() {{
+            const surface = getPlotSurface();
+            const img = document.getElementById('plot_image');
+            if (!surface || !img) {{
+                return;
+            }}
+
+            let layout = computePlotLayout(surface);
+            if (!layout) {{
+                return;
+            }}
+
+            clampPan(layout);
+            layout = computePlotLayout(surface);
+            if (!layout) {{
+                return;
+            }}
+
+            const {{
+                effectiveScale,
+                effectiveWidth,
+                effectiveHeight,
+                offsetX,
+                offsetY,
+            }} = layout;
+
+            img.style.position = 'absolute';
+            img.style.left = `${{offsetX}}px`;
+            img.style.top = `${{offsetY}}px`;
+            img.style.width = `${{effectiveWidth}}px`;
+            img.style.height = `${{effectiveHeight}}px`;
+
             const map = document.getElementsByName('plot_map')[0];
-            const areas = map.getElementsByTagName('area');
-            const naturalWidth = {fig_width_px};
-            const naturalHeight = {fig_height_px};
-            const containerWidth = img.clientWidth;
-            const containerHeight = img.clientHeight;
-
-            const scale = Math.min(
-                containerWidth / naturalWidth,
-                containerHeight / naturalHeight
-            );
-            const renderedWidth = naturalWidth * scale;
-            const renderedHeight = naturalHeight * scale;
-            const offsetX = (containerWidth - renderedWidth) / 2;
-            const offsetY = (containerHeight - renderedHeight) / 2;
-
-            for (const area of areas) {{
-                const originalCoords = area.getAttribute('data-coords').split(',');
-                const x = Number(originalCoords[0]) * scale + offsetX;
-                const y = Number(originalCoords[1]) * scale + offsetY;
-                const radius = Number(originalCoords[2]) * scale;
-                area.coords = `${{Math.round(x)}},${{Math.round(y)}},${{Math.round(radius)}}`;
+            if (map) {{
+                const areas = map.getElementsByTagName('area');
+                for (const area of areas) {{
+                    const originalCoords = area.getAttribute('data-coords').split(',');
+                    const x = Number(originalCoords[0]) * effectiveScale + offsetX;
+                    const y = Number(originalCoords[1]) * effectiveScale + offsetY;
+                    const radius = Number(originalCoords[2]) * effectiveScale;
+                    area.coords = `${{Math.round(x)}},${{Math.round(y)}},${{Math.round(radius)}}`;
+                }}
             }}
             {svg_block}
+        }}
+
+        function resizeMap() {{
+            applyPlotLayout();
+        }}
+
+        function zoomAt(clientX, clientY, deltaY) {{
+            const surface = getPlotSurface();
+            if (!surface) {{
+                return;
+            }}
+
+            const layout = computePlotLayout(surface);
+            if (!layout) {{
+                return;
+            }}
+
+            const rect = surface.getBoundingClientRect();
+            const mx = clientX - rect.left;
+            const my = clientY - rect.top;
+            const ix = (mx - layout.offsetX) / layout.effectiveScale;
+            const iy = (my - layout.offsetY) / layout.effectiveScale;
+            const factor = deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+            const newLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, plotZoom.level * factor));
+            if (newLevel === plotZoom.level) {{
+                return;
+            }}
+
+            plotZoom.level = newLevel;
+            if (plotZoom.level === ZOOM_MIN) {{
+                plotZoom.panX = 0;
+                plotZoom.panY = 0;
+            }} else {{
+                const base = computeBaseLayout(surface);
+                if (!base) {{
+                    return;
+                }}
+                const newEffectiveScale = base.scale * plotZoom.level;
+                plotZoom.panX = mx - base.offsetX - ix * newEffectiveScale;
+                plotZoom.panY = my - base.offsetY - iy * newEffectiveScale;
+            }}
+            applyPlotLayout();
+        }}
+
+        function resetZoom() {{
+            plotZoom.level = ZOOM_MIN;
+            plotZoom.panX = 0;
+            plotZoom.panY = 0;
+            applyPlotLayout();
+        }}
+
+        function blockPreviewPanelWheel() {{
+            const previewPanel = document.getElementById('preview_panel');
+            if (!previewPanel) {{
+                return;
+            }}
+            previewPanel.addEventListener('wheel', (event) => {{
+                if (event.ctrlKey) {{
+                    event.stopPropagation();
+                }}
+            }}, {{ capture: true }});
+        }}
+
+        function setupPlotZoomInteractions() {{
+            if (plotZoomInteractionsReady || isEmbeddedPreview()) {{
+                return;
+            }}
+            const surface = getPlotSurface();
+            if (!surface) {{
+                return;
+            }}
+            plotZoomInteractionsReady = true;
+            blockPreviewPanelWheel();
+
+            surface.addEventListener('wheel', (event) => {{
+                if (!event.ctrlKey || !surface.contains(event.target)) {{
+                    return;
+                }}
+                event.preventDefault();
+                zoomAt(event.clientX, event.clientY, event.deltaY);
+            }}, {{ passive: false }});
+
+            surface.addEventListener('dblclick', (event) => {{
+                event.preventDefault();
+                resetZoom();
+            }});
+
+            surface.addEventListener('mousedown', (event) => {{
+                const canPan = plotZoom.level > ZOOM_MIN
+                    && (event.button === 1 || (event.button === 0 && event.shiftKey));
+                if (!canPan) {{
+                    return;
+                }}
+                event.preventDefault();
+                panState = {{
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    panX: plotZoom.panX,
+                    panY: plotZoom.panY,
+                }};
+                surface.classList.add('panning');
+            }});
+
+            window.addEventListener('mousemove', (event) => {{
+                if (!panState) {{
+                    return;
+                }}
+                plotZoom.panX = panState.panX + (event.clientX - panState.startX);
+                plotZoom.panY = panState.panY + (event.clientY - panState.startY);
+                applyPlotLayout();
+            }});
+
+            const endPan = () => {{
+                if (!panState) {{
+                    return;
+                }}
+                panState = null;
+                surface.classList.remove('panning');
+            }};
+            window.addEventListener('mouseup', endPan);
+            window.addEventListener('blur', endPan);
         }}
 
         function initMap() {{
             const img = document.getElementById('plot_image');
             const run = () => requestAnimationFrame(() => {{
-                resizeMap();
+                resetZoom();
+                applyPlotLayout();
+                setupPlotZoomInteractions();
                 if (!hotspotInteractionsReady && typeof setupHotspotInteractions === 'function') {{
                     hotspotInteractionsReady = true;
                     setupHotspotInteractions();
@@ -570,9 +789,12 @@ def build_resize_map_js(
 
         if (typeof ResizeObserver !== 'undefined') {{
             window.addEventListener('load', () => {{
-                const img = document.getElementById('plot_image');
+                const surface = getPlotSurface();
+                if (!surface) {{
+                    return;
+                }}
                 const observer = new ResizeObserver(() => resizeMap());
-                observer.observe(img);
+                observer.observe(surface);
             }});
         }}"""
 
@@ -888,14 +1110,22 @@ def build_html_page(
             width: {container_width};
             max-width: 1600px;
         }}
+        body:not(.iframe-preview-mode) .plot-surface {{
+            aspect-ratio: {fig_width_px} / {fig_height_px};
+        }}
         #plot_image {{
-            width: 100%;
-            height: auto;
+            position: absolute;
             display: block;
             border: none;
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             background: var(--surface);
+        }}
+        .plot-surface.panning {{
+            cursor: grabbing;
+        }}
+        .plot-surface.panning .hotspot-marker {{
+            cursor: grabbing;
         }}
         {_hotspot_css(show_hotspots)}"""
 
@@ -956,7 +1186,7 @@ def build_html_page(
 <body{body_class_attr}>
     {layout_open}
     <div class="container">
-        <div class="plot-surface">
+        <div class="plot-surface" id="main_plot_surface">
             <img src="./{safe_image_filename}" usemap="#plot_map" id="plot_image" alt="{safe_title}">
             {svg_overlay}
             <map name="plot_map">

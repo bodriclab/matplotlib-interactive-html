@@ -77,6 +77,8 @@ Place linked files (`point_A.png`, etc.) in the **same folder** as the HTML file
 
 By default (`iframe_preview=None`), each hotspot opens its linked file in a **new browser tab** (`target="_blank"`). No side panel is added to the page.
 
+Plot zoom (main plot only): **Ctrl + mouse wheel** on the main graph to zoom, **double-click** to reset, **Shift + drag** or **middle-click drag** to pan when zoomed. Zoom is disabled inside the preview panel and when a plot is embedded in an iframe.
+
 ## Preview panel
 
 Enable an in-page side panel instead of opening files in a new tab:
@@ -104,6 +106,14 @@ Features:
 - Automatic media type detection (image, video, HTML, PDF)
 - Panel header with filename, open-in-new-tab button, and close button
 - Ctrl+click (Cmd+click on macOS) on a hotspot opens in a new tab
+
+### Plot zoom
+
+- **Ctrl + mouse wheel** over the **main plot** zooms in/out centered on the cursor (visual zoom on the PNG)
+- Default zoom on page load: **100%** (fit to the plot area)
+- Does not apply to the preview panel (image, video, iframe) or to plots embedded in an iframe
+- **Double-click** the main plot to reset zoom
+- **Shift + drag** or **middle-click drag** pans when zoomed in
 
 ### Resizable splitter
 

@@ -114,3 +114,36 @@ def test_preview_high_dpi_hotspots_clickable(browser_context, preview_html_high_
     assert page.locator("#preview_panel").is_visible()
     assert page.evaluate("() => document.getElementById('preview_image').src").endswith("media/a.png")
     page.close()
+
+
+def test_ctrl_wheel_zoom_keeps_hotspots_clickable(browser_context, preview_html):
+    page = browser_context.new_page(viewport={"width": 1400, "height": 900})
+    page.goto(preview_html.resolve().as_uri())
+    page.wait_for_function("() => document.getElementById('plot_image').clientWidth > 0")
+
+    base_width = page.evaluate("() => document.getElementById('plot_image').clientWidth")
+    page.evaluate(
+        """() => {
+            const surface = document.getElementById('main_plot_surface');
+            const rect = surface.getBoundingClientRect();
+            surface.dispatchEvent(new WheelEvent('wheel', {
+                deltaY: -100,
+                ctrlKey: true,
+                clientX: rect.left + rect.width / 2,
+                clientY: rect.top + rect.height / 2,
+                bubbles: true,
+                cancelable: true,
+            }));
+        }"""
+    )
+    page.wait_for_timeout(100)
+
+    assert page.evaluate("() => window.plotZoom.level > 1")
+    zoomed_width = page.evaluate("() => document.getElementById('plot_image').clientWidth")
+    assert zoomed_width > base_width
+
+    _click_hotspot(page, "media/a.png")
+    page.wait_for_timeout(300)
+    assert page.locator("#preview_panel").is_visible()
+    assert page.evaluate("() => document.getElementById('preview_image').src").endswith("media/a.png")
+    page.close()
